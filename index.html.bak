@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>塩梅アプリ</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+<style>
+:root{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#eeeeee;
+  --text:#1a1a1a;--text2:#666666;--text3:#999999;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.2);
+  --success-bg:#f0fdf4;--success:#16a34a;
+  --info-bg:#eff6ff;--info:#2563eb;
+  --danger-bg:#fef2f2;--danger:#dc2626;
+  --radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+  --text:#f5f5f7;--text2:#aeaeb2;--text3:#636366;
+  --border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);
+  --success-bg:#052e16;--success:#4ade80;
+  --info-bg:#1e3a5f;--info:#60a5fa;
+  --danger-bg:#450a0a;--danger:#f87171;
+}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:var(--bg2);color:var(--text);-webkit-text-size-adjust:100%;}
+.phone{max-width:390px;margin:0 auto;background:var(--bg2);min-height:100vh;}
+.topbar{background:var(--bg);border-bottom:0.5px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:center;position:sticky;top:0;z-index:20;}
+.topbar h1{font-size:17px;font-weight:600;color:var(--text);}
+.tab-bar{display:flex;background:var(--bg);border-top:0.5px solid var(--border);position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:390px;z-index:20;}
+.tab{flex:1;padding:10px 4px 8px;text-align:center;cursor:pointer;font-size:10px;color:var(--text2);}
+.tab i{display:block;font-size:22px;margin-bottom:2px;}
+.tab.active{color:var(--text);}
+.screen{display:none;padding:10px 10px 80px;}
+.screen.active{display:block;}
+.card{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:14px;margin-bottom:10px;}
+.card-title{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:10px;letter-spacing:0.5px;text-transform:uppercase;}
+label{font-size:13px;color:var(--text2);display:block;margin-bottom:4px;}
+input,select,textarea{width:100%;padding:9px 12px;font-size:15px;border:0.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);margin-bottom:10px;-webkit-appearance:none;appearance:none;}
+textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.btn{width:100%;padding:12px;font-size:14px;font-weight:500;background:var(--bg);border:0.5px solid var(--border2);border-radius:var(--radius);color:var(--text);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.btn:active{background:var(--bg2);}
+.btn-primary{background:var(--bg2);}
+.btn-sm{padding:6px 12px;font-size:13px;width:auto;}
+.cond-item{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:0.5px solid var(--border);}
+.cond-item:last-child{border-bottom:none;}
+.cond-name{flex:1;font-size:14px;color:var(--text);}
+.cond-sub{font-size:11px;color:var(--text2);}
+.del-btn{font-size:20px;color:var(--text3);cursor:pointer;padding:0 4px;flex-shrink:0;}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border);}
+.result-row:last-child{border-bottom:none;}
+.rname{font-size:14px;color:var(--text);}
+.rval{font-size:14px;font-weight:600;color:var(--text);}
+.rsub{font-size:11px;color:var(--text2);}
+.meter-bg{height:8px;background:var(--bg2);border-radius:99px;overflow:hidden;position:relative;margin:8px 0 4px;}
+.meter-fill{height:100%;border-radius:99px;transition:width 0.4s;}
+.meter-ideal{position:absolute;top:0;width:2px;height:100%;background:var(--text2);}
+.meter-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);}
+.tag{display:inline-block;font-size:12px;padding:3px 10px;border-radius:99px;}
+.tag-ok{background:var(--success-bg);color:var(--success);}
+.tag-low{background:var(--info-bg);color:var(--info);}
+.tag-high{background:var(--danger-bg);color:var(--danger);}
+.suggestion{background:var(--bg2);border-radius:var(--radius);padding:10px 12px;font-size:13px;color:var(--text);line-height:1.6;margin-top:8px;}
+.rating-row{display:flex;gap:6px;margin-top:6px;}
+.rate-btn{flex:1;padding:10px 4px;font-size:12px;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;background:var(--bg);color:var(--text2);text-align:center;line-height:1.5;}
+.rate-btn.sel-low{background:var(--info-bg);color:var(--info);border-color:transparent;}
+.rate-btn.sel-ok{background:var(--success-bg);color:var(--success);border-color:transparent;}
+.rate-btn.sel-high{background:var(--danger-bg);color:var(--danger);border-color:transparent;}
+.recipe-card{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:14px;margin-bottom:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.recipe-card:active{background:var(--bg2);}
+.lib-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border);}
+.lib-item:last-child{border-bottom:none;}
+.modal-bg{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--bg);border-radius:16px 16px 0 0;width:100%;max-width:390px;padding:16px 16px 32px;max-height:85vh;overflow-y:auto;}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:99px;margin:0 auto 16px;}
+.modal-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:12px;}
+.cond-pick{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:0.5px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.cond-pick:last-child{border-bottom:none;}
+.cond-pick:active{background:var(--bg2);}
+.cat-label{font-size:11px;font-weight:500;color:var(--text2);padding:10px 0 4px;letter-spacing:0.5px;text-transform:uppercase;}
+.profile-stat{text-align:center;padding:14px;}
+.profile-num{font-size:28px;font-weight:600;color:var(--text);}
+.profile-label{font-size:12px;color:var(--text2);margin-top:2px;}
+.history-item{padding:10px 0;border-bottom:0.5px solid var(--border);}
+.history-item:last-child{border-bottom:none;}
+.empty{text-align:center;padding:2rem;color:var(--text2);font-size:14px;line-height:1.8;}
+.back-btn{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text2);cursor:pointer;margin-bottom:12px;padding:4px 0;}
+.detail-view{display:none;}
+.detail-view.open{display:block;}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <h1><i class="ti ti-salt" style="font-size:16px;margin-right:6px;vertical-align:-2px;"></i>塩梅アプリ</h1>
+  </div>
+
+  <!-- 計算タブ -->
+  <div class="screen active" id="s-calc">
+    <div class="card" style="margin-top:8px;">
+      <div class="card-title">レシピ情報</div>
+      <label>料理名</label>
+      <input type="text" id="c-dish" placeholder="例：銀鱈の煮付け" />
+      <label>料理の種類</label>
+      <select id="c-type">
+        <option value="nitsuke">煮物・煮魚（適正：1.2%）</option>
+        <option value="soup">汁物（適正：0.8%）</option>
+        <option value="stir">炒め物（適正：1.0%）</option>
+        <option value="teriyaki">照り焼き・たれ（適正：1.5%）</option>
+        <option value="salad">和え物・サラダ（適正：0.8%）</option>
+        <option value="pickles">漬け物（適正：2.0%）</option>
+      </select>
+      <div class="row2">
+        <div><label>食材の総重量（g）</label><input type="number" id="c-weight" placeholder="例：100" /></div>
+        <div><label>水分量（cc）</label><input type="number" id="c-water" placeholder="例：150" /></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>調味料</span>
+        <button class="btn btn-sm" onclick="openCondModal()">＋ 追加</button>
+      </div>
+      <div id="cond-list"><div class="empty" style="padding:0.75rem 0;font-size:13px;">「＋追加」で調味料を選択</div></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="calcSalt()"><i class="ti ti-calculator" style="margin-right:4px;vertical-align:-2px;"></i>塩梅を計算する</button>
+
+    <div class="card" id="result-card" style="display:none;margin-top:10px;">
+      <div class="card-title">計算結果</div>
+      <div id="result-rows"></div>
+      <div id="meter-wrap"></div>
+      <div id="suggestion-box"></div>
+      <div style="margin-top:14px;">
+        <label style="margin-bottom:6px;">食べた感想を記録</label>
+        <div class="rating-row">
+          <div class="rate-btn" id="r-low" onclick="rate('low')"><i class="ti ti-arrow-down"></i><br>薄い</div>
+          <div class="rate-btn" id="r-ok" onclick="rate('ok')"><i class="ti ti-check"></i><br>ちょうどいい</div>
+          <div class="rate-btn" id="r-high" onclick="rate('high')"><i class="ti ti-arrow-up"></i><br>濃い</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <label>手順メモ（任意）</label>
+        <textarea id="c-memo" placeholder="例：魚を下処理してから煮汁で10分煮る。冷ましてから食べると味が染みる。"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="saveRecipe()"><i class="ti ti-bookmark" style="margin-right:4px;vertical-align:-2px;"></i>レシピとして保存</button>
+    </div>
+  </div>
+
+  <!-- レシピタブ -->
+  <div class="screen" id="s-recipe">
+    <div id="recipe-list-view">
+      <div style="margin:8px 0 10px;">
+        <input type="text" id="recipe-search" placeholder="レシピを検索..." style="margin:0;" oninput="renderRecipes()" />
+      </div>
+      <div id="recipe-list"></div>
+    </div>
+    <div class="detail-view" id="recipe-detail">
+      <div class="back-btn" onclick="closeDetail()"><i class="ti ti-arrow-left"></i> 戻る</div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div id="d-name" style="font-size:18px;font-weight:600;color:var(--text);"></div>
+            <div id="d-meta" style="font-size:12px;color:var(--text2);margin-top:2px;"></div>
+          </div>
+          <button class="btn btn-sm" onclick="deleteRecipe()" style="width:auto;font-size:12px;padding:4px 10px;color:var(--danger);">削除</button>
+        </div>
+        <div id="d-result-rows"></div>
+        <div id="d-meter"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">調味料</div>
+        <div id="d-conds"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">手順メモ</div>
+        <div id="d-memo" style="font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">アレンジ・メモを編集</div>
+        <textarea id="d-memo-edit" placeholder="手順・アレンジメモを入力"></textarea>
+        <button class="btn btn-primary" onclick="saveMemo()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 調味料ライブラリタブ -->
+  <div class="screen" id="s-lib">
+    <div class="card" style="margin-top:8px;">
+      <div class="card-title">調味料を追加登録</div>
+      <div class="row2">
+        <div><label>調味料名</label><input type="text" id="lib-name" placeholder="例：魚醤" /></div>
+        <div><label>塩分濃度（%）</label><input type="number" id="lib-pct" placeholder="例：20" step="0.1" /></div>
+      </div>
+      <div class="row2">
+        <div><label>大さじ1（ml or g）</label><input type="number" id="lib-ml" placeholder="例：18" /></div>
+        <div><label>カテゴリ</label>
+          <select id="lib-cat">
+            <option value="醤油系">醤油系</option>
+            <option value="みそ系">みそ系</option>
+            <option value="塩系">塩系</option>
+            <option value="だし系">だし系</option>
+            <option value="酒系">酒系</option>
+            <option value="甘味系">甘味系</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="addLib()">登録する</button>
+    </div>
+    <div class="card">
+      <div class="card-title">登録済み調味料</div>
+      <div id="lib-list"></div>
+    </div>
+  </div>
+
+  <!-- マイ塩梅タブ -->
+  <div class="screen" id="s-my">
+    <div class="card" style="margin-top:8px;">
+      <div class="row2">
+        <div class="profile-stat"><div class="profile-num" id="my-ideal">—</div><div class="profile-label">マイ適正塩分%</div></div>
+        <div class="profile-stat"><div class="profile-num" id="my-count">0</div><div class="profile-label">評価した料理数</div></div>
+      </div>
+      <div style="padding:0 14px 10px;font-size:12px;color:var(--text2);text-align:center;" id="my-desc">料理を評価すると自動で学習します</div>
+    </div>
+    <div class="card">
+      <div class="card-title">料理タイプ別 マイ適正値</div>
+      <div id="my-type-list"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">評価履歴</div>
+      <div id="my-history"></div>
+    </div>
+  </div>
+
+  <!-- 調味料選択モーダル -->
+  <div class="modal-bg" id="cond-modal" onclick="handleModalBg(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title">調味料を選択</div>
+      <input type="text" id="modal-search" placeholder="名前で検索..." oninput="renderModalList()" style="margin-bottom:10px;" />
+      <div id="modal-list"></div>
+      <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
+        <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">ライブラリにない場合は直接入力</div>
+        <div class="row2">
+          <div><label>調味料名</label><input type="text" id="custom-name" placeholder="例：ナンプラー" style="margin-bottom:6px;" /></div>
+          <div><label>塩分濃度（%）</label><input type="number" id="custom-pct" placeholder="例：20" style="margin-bottom:6px;" /></div>
+        </div>
+        <button class="btn btn-primary" onclick="addCustomCond()">この調味料を追加</button>
+      </div>
+      <button class="btn" onclick="closeCondModal()" style="margin-top:8px;">閉じる</button>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <div class="tab active" id="t-calc" onclick="showTab('calc')"><i class="ti ti-calculator"></i>計算</div>
+    <div class="tab" id="t-recipe" onclick="showTab('recipe')"><i class="ti ti-book"></i>レシピ</div>
+    <div class="tab" id="t-lib" onclick="showTab('lib')"><i class="ti ti-bottle"></i>調味料</div>
+    <div class="tab" id="t-my" onclick="showTab('my')"><i class="ti ti-user"></i>マイ塩梅</div>
+  </div>
+</div>
+
+<script>
+const IDEAL={nitsuke:1.2,soup:0.8,stir:1.0,teriyaki:1.5,salad:0.8,pickles:2.0};
+const TYPE_LABEL={nitsuke:'煮物・煮魚',soup:'汁物',stir:'炒め物',teriyaki:'照り焼き',salad:'和え物',pickles:'漬け物'};
+
+let library=[
+  {name:'醤油（濃口）',pct:14.5,ml:18,cat:'醤油系'},
+  {name:'醤油（薄口）',pct:16.0,ml:18,cat:'醤油系'},
+  {name:'たまり醤油',pct:16.5,ml:18,cat:'醤油系'},
+  {name:'減塩醤油',pct:9.0,ml:18,cat:'醤油系'},
+  {name:'味噌（合わせ）',pct:12.0,ml:18,cat:'みそ系'},
+  {name:'味噌（白）',pct:6.0,ml:18,cat:'みそ系'},
+  {name:'味噌（赤）',pct:13.0,ml:18,cat:'みそ系'},
+  {name:'塩',pct:99.0,ml:6,cat:'塩系'},
+  {name:'岩塩',pct:99.0,ml:6,cat:'塩系'},
+  {name:'みりん（本みりん）',pct:0.0,ml:18,cat:'甘味系'},
+  {name:'みりん風調味料',pct:1.5,ml:18,cat:'甘味系'},
+  {name:'砂糖',pct:0.0,ml:9,cat:'甘味系'},
+  {name:'料理酒',pct:2.0,ml:18,cat:'酒系'},
+  {name:'日本酒',pct:0.0,ml:18,cat:'酒系'},
+  {name:'白ワイン',pct:0.0,ml:18,cat:'酒系'},
+  {name:'粉末だし（かつお）',pct:40.0,ml:5,cat:'だし系'},
+  {name:'粉末だし（昆布）',pct:25.0,ml:5,cat:'だし系'},
+  {name:'顆粒だし（ほんだし）',pct:40.0,ml:5,cat:'だし系'},
+  {name:'白だし',pct:10.0,ml:18,cat:'だし系'},
+  {name:'めんつゆ（3倍濃縮）',pct:8.0,ml:18,cat:'だし系'},
+  {name:'魚醤（ナンプラー）',pct:20.0,ml:18,cat:'その他'},
+  {name:'魚醤（いしる）',pct:22.0,ml:18,cat:'その他'},
+  {name:'オイスターソース',pct:11.0,ml:18,cat:'その他'},
+  {name:'ウスターソース',pct:8.5,ml:18,cat:'その他'},
+  {name:'豆板醤',pct:15.0,ml:15,cat:'その他'},
+];
+
+let condList=[];
+let recipes=JSON.parse(localStorage.getItem('shiomai-recipes')||'[]');
+let history=JSON.parse(localStorage.getItem('shiomai-history')||'[]');
+let lastCalc=null;
+let currentRecipeIdx=null;
+
+function saveToStorage(){
+  localStorage.setItem('shiomai-recipes',JSON.stringify(recipes));
+  localStorage.setItem('shiomai-history',JSON.stringify(history));
+}
+
+function showTab(t){
+  ['calc','recipe','lib','my'].forEach(x=>{
+    document.getElementById('s-'+x).classList.toggle('active',x===t);
+    document.getElementById('t-'+x).classList.toggle('active',x===t);
+  });
+  if(t==='recipe') renderRecipes();
+  if(t==='lib') renderLib();
+  if(t==='my') renderMy();
+}
+
+function openCondModal(){
+  document.getElementById('modal-search').value='';
+  document.getElementById('custom-name').value='';
+  document.getElementById('custom-pct').value='';
+  renderModalList();
+  document.getElementById('cond-modal').classList.add('open');
+}
+function closeCondModal(){document.getElementById('cond-modal').classList.remove('open');}
+function handleModalBg(e){if(e.target===document.getElementById('cond-modal'))closeCondModal();}
+
+function renderModalList(){
+  const q=document.getElementById('modal-search').value.toLowerCase();
+  const filtered=library.filter(l=>l.name.toLowerCase().includes(q));
+  const cats=[...new Set(filtered.map(l=>l.cat))];
+  let html='';
+  cats.forEach(cat=>{
+    html+=`<div class="cat-label">${cat}</div>`;
+    filtered.filter(l=>l.cat===cat).forEach(l=>{
+      html+=`<div class="cond-pick" onclick="pickCond('${l.name.replace(/'/g,"\\'")}',${l.pct},${l.ml})">
+        <span style="font-size:14px;color:var(--text);">${l.name}</span>
+        <span style="font-size:12px;color:var(--text2);">塩分 ${l.pct}%</span>
+      </div>`;
+    });
+  });
+  document.getElementById('modal-list').innerHTML=html||'<div class="empty" style="padding:1rem 0;">見つかりません</div>';
+}
+
+function pickCond(name,pct,ml){
+  condList.push({name,pct,ml,amount:'',unit:'大さじ'});
+  renderCondList();
+  closeCondModal();
+}
+
+function addCustomCond(){
+  const name=document.getElementById('custom-name').value.trim();
+  const pct=parseFloat(document.getElementById('custom-pct').value);
+  if(!name||isNaN(pct)){alert('名前と塩分濃度を入力してください');return;}
+  condList.push({name,pct,ml:18,amount:'',unit:'大さじ'});
+  renderCondList();
+  closeCondModal();
+}
+
+function renderCondList(){
+  const el=document.getElementById('cond-list');
+  if(!condList.length){el.innerHTML='<div class="empty" style="padding:0.75rem 0;font-size:13px;">「＋追加」で調味料を選択</div>';return;}
+  el.innerHTML=condList.map((c,i)=>`
+    <div class="cond-item">
+      <div style="flex:1;">
+        <div class="cond-name">${c.name}</div>
+        <div class="cond-sub">塩分 ${c.pct}%</div>
+      </div>
+      <input type="number" placeholder="量" style="width:56px;margin:0;padding:6px 8px;font-size:14px;" value="${c.amount}" onchange="condList[${i}].amount=this.value" />
+      <select style="width:68px;margin:0;padding:6px 4px;font-size:12px;" onchange="condList[${i}].unit=this.value">
+        <option value="大さじ">大さじ</option>
+        <option value="小さじ">小さじ</option>
+        <option value="g">g</option>
+        <option value="cc">cc</option>
+      </select>
+      <span class="del-btn" onclick="condList.splice(${i},1);renderCondList()"><i class="ti ti-x"></i></span>
+    </div>
+  `).join('');
+}
+
+function unitToSaltG(amount,unit,pct,mlPer){
+  const a=parseFloat(amount)||0;
+  let g=0;
+  if(unit==='大さじ') g=a*(mlPer||18);
+  else if(unit==='小さじ') g=a*((mlPer||18)/3);
+  else g=a;
+  return g*(pct/100);
+}
+
+function calcSalt(){
+  const weight=parseFloat(document.getElementById('c-weight').value)||0;
+  const water=parseFloat(document.getElementById('c-water').value)||0;
+  const type=document.getElementById('c-type').value;
+  const dish=document.getElementById('c-dish').value||'料理';
+  if(!weight){alert('食材の重量を入力してください');return;}
+  if(!condList.length){alert('調味料を追加してください');return;}
+  const totalSaltG=condList.reduce((s,c)=>s+unitToSaltG(c.amount,c.unit,c.pct,c.ml),0);
+  const totalMass=weight+water;
+  const saltPct=totalMass>0?(totalSaltG/totalMass*100):0;
+  const ideal=IDEAL[type];
+  const diff=saltPct-ideal;
+  const color=Math.abs(diff)<0.2?'#16a34a':diff>0?'#dc2626':'#2563eb';
+  const meterPct=Math.min(saltPct/3*100,100).toFixed(1);
+  const idealPos=Math.min(ideal/3*100,100).toFixed(1);
+  let tag='',suggestion='';
+  if(Math.abs(diff)<0.2){
+    tag='<span class="tag tag-ok">ちょうどいい塩梅</span>';
+    suggestion='一般的な適正範囲内です。';
+  } else if(diff>0){
+    tag='<span class="tag tag-high">やや塩辛め</span>';
+    const reduce=+(totalSaltG-ideal/100*totalMass).toFixed(2);
+    suggestion=`塩分が約${reduce}g多めです。醤油なら大さじ約${(reduce/2.61).toFixed(1)}ほど減らすと適正になります。`;
+  } else {
+    tag='<span class="tag tag-low">やや薄め</span>';
+    const add=+(ideal/100*totalMass-totalSaltG).toFixed(2);
+    suggestion=`塩分が約${add}g不足しています。醤油なら大さじ約${(add/2.61).toFixed(1)}ほど足すと適正になります。`;
+  }
+  document.getElementById('result-rows').innerHTML=`
+    <div class="result-row"><span class="rname">総塩分量</span><span class="rval">${totalSaltG.toFixed(2)} g</span></div>
+    <div class="result-row"><span class="rname">塩分濃度</span><div style="text-align:right;"><div class="rval">${saltPct.toFixed(2)}%</div><div class="rsub">一般適正：${ideal}%</div></div></div>
+    <div class="result-row"><span class="rname">判定</span>${tag}</div>
+  `;
+  document.getElementById('meter-wrap').innerHTML=`
+    <div class="meter-bg"><div class="meter-fill" style="width:${meterPct}%;background:${color};"></div><div class="meter-ideal" style="left:${idealPos}%;"></div></div>
+    <div class="meter-labels"><span>0%</span><span>適正 ${ideal}%</span><span>3%</span></div>
+  `;
+  document.getElementById('suggestion-box').innerHTML=`<div class="suggestion"><i class="ti ti-bulb" style="font-size:14px;margin-right:4px;vertical-align:-2px;"></i>${suggestion}</div>`;
+  document.getElementById('result-card').style.display='block';
+  ['r-low','r-ok','r-high'].forEach(id=>document.getElementById(id).className='rate-btn');
+  document.getElementById('c-memo').value='';
+  lastCalc={dish,type,saltPct:+saltPct.toFixed(3),totalSaltG:+totalSaltG.toFixed(2),ideal,weight,water,
+    conds:condList.map(c=>({...c})),date:new Date().toLocaleDateString('ja-JP'),verdict:null,memo:''};
+}
+
+function rate(verdict){
+  ['r-low','r-ok','r-high'].forEach(id=>document.getElementById(id).className='rate-btn');
+  document.getElementById('r-'+verdict).className='rate-btn sel-'+verdict;
+  if(!lastCalc) return;
+  lastCalc.verdict=verdict;
+  const existing=history.findIndex(h=>h.dish===lastCalc.dish&&h.date===lastCalc.date);
+  if(existing>=0) history[existing]=({...lastCalc});
+  else history.unshift({...lastCalc});
+  saveToStorage();
+}
+
+function saveRecipe(){
+  if(!lastCalc){alert('先に計算してください');return;}
+  lastCalc.memo=document.getElementById('c-memo').value;
+  recipes.unshift({...lastCalc,savedAt:new Date().toLocaleDateString('ja-JP')});
+  saveToStorage();
+  alert('「'+lastCalc.dish+'」をレシピに保存しました');
+}
+
+function renderRecipes(){
+  const q=(document.getElementById('recipe-search')||{value:''}).value.toLowerCase();
+  const filtered=recipes.filter(r=>r.dish.toLowerCase().includes(q)||(TYPE_LABEL[r.type]||'').includes(q));
+  const el=document.getElementById('recipe-list');
+  if(!filtered.length){el.innerHTML='<div class="empty">レシピがありません<br><span style="font-size:12px;">計算後に「保存」で登録できます</span></div>';return;}
+  el.innerHTML=filtered.map(r=>{
+    const idx=recipes.indexOf(r);
+    const vLabel=r.verdict?{low:'薄い',ok:'ちょうどいい',high:'濃い'}[r.verdict]:'未評価';
+    const vClass=r.verdict==='ok'?'tag-ok':r.verdict==='low'?'tag-low':r.verdict==='high'?'tag-high':'';
+    return `<div class="recipe-card" onclick="openDetail(${idx})">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--text);">${r.dish}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:3px;">${TYPE_LABEL[r.type]} ・ 塩分${r.saltPct}% ・ ${r.savedAt}</div>
+        </div>
+        <i class="ti ti-chevron-right" style="font-size:18px;color:var(--text2);margin-top:2px;"></i>
+      </div>
+      <div style="margin-top:6px;"><span class="tag ${vClass}" style="font-size:11px;">${vLabel}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function openDetail(idx){
+  currentRecipeIdx=idx;
+  const r=recipes[idx];
+  const ideal=IDEAL[r.type];
+  document.getElementById('d-name').textContent=r.dish;
+  document.getElementById('d-meta').textContent=TYPE_LABEL[r.type]+' ・ '+r.savedAt;
+  const diff=r.saltPct-ideal;
+  const color=Math.abs(diff)<0.2?'#16a34a':diff>0?'#dc2626':'#2563eb';
+  const meterPct=Math.min(r.saltPct/3*100,100).toFixed(1);
+  const idealPos=Math.min(ideal/3*100,100).toFixed(1);
+  document.getElementById('d-result-rows').innerHTML=`
+    <div class="result-row"><span class="rname">塩分濃度</span><div style="text-align:right;"><div class="rval">${r.saltPct}%</div><div class="rsub">一般適正：${ideal}%</div></div></div>
+    <div class="result-row"><span class="rname">食材重量</span><span class="rval">${r.weight}g</span></div>
+    <div class="result-row"><span class="rname">水分量</span><span class="rval">${r.water||0}cc</span></div>
+  `;
+  document.getElementById('d-meter').innerHTML=`
+    <div class="meter-bg"><div class="meter-fill" style="width:${meterPct}%;background:${color};"></div><div class="meter-ideal" style="left:${idealPos}%;"></div></div>
+    <div class="meter-labels"><span>0%</span><span>適正 ${ideal}%</span><span>3%</span></div>
+  `;
+  document.getElementById('d-conds').innerHTML=r.conds.map(c=>`
+    <div class="result-row"><span class="rname">${c.name}</span><span class="rval">${c.amount} ${c.unit}</span></div>
+  `).join('');
+  document.getElementById('d-memo').textContent=r.memo||'（メモなし）';
+  document.getElementById('d-memo-edit').value=r.memo||'';
+  document.getElementById('recipe-list-view').style.display='none';
+  document.getElementById('recipe-detail').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('recipe-list-view').style.display='block';
+  document.getElementById('recipe-detail').classList.remove('open');
+  renderRecipes();
+}
+
+function saveMemo(){
+  if(currentRecipeIdx===null) return;
+  recipes[currentRecipeIdx].memo=document.getElementById('d-memo-edit').value;
+  document.getElementById('d-memo').textContent=recipes[currentRecipeIdx].memo||'（メモなし）';
+  saveToStorage();
+  alert('メモを保存しました');
+}
+
+function deleteRecipe(){
+  if(currentRecipeIdx===null) return;
+  if(!confirm('このレシピを削除しますか？')) return;
+  recipes.splice(currentRecipeIdx,1);
+  saveToStorage();
+  currentRecipeIdx=null;
+  closeDetail();
+}
+
+function addLib(){
+  const name=document.getElementById('lib-name').value.trim();
+  const pct=parseFloat(document.getElementById('lib-pct').value);
+  const ml=parseFloat(document.getElementById('lib-ml').value)||18;
+  const cat=document.getElementById('lib-cat').value;
+  if(!name||isNaN(pct)){alert('名前と塩分濃度を入力してください');return;}
+  library.push({name,pct,ml,cat});
+  ['lib-name','lib-pct','lib-ml'].forEach(id=>document.getElementById(id).value='');
+  renderLib();
+}
+
+function renderLib(){
+  document.getElementById('lib-list').innerHTML=library.map((l,i)=>`
+    <div class="lib-item">
+      <div>
+        <div style="font-size:14px;color:var(--text);">${l.name}</div>
+        <div style="font-size:11px;color:var(--text2);">塩分${l.pct}% ／ 大さじ1≒${l.ml}ml ／ ${l.cat}</div>
+      </div>
+      <span class="del-btn" onclick="library.splice(${i},1);renderLib()"><i class="ti ti-x"></i></span>
+    </div>
+  `).join('');
+}
+
+function getMyIdeal(type){
+  const ok=history.filter(h=>h.type===type&&h.verdict==='ok');
+  if(!ok.length) return null;
+  return ok.reduce((s,h)=>s+h.saltPct,0)/ok.length;
+}
+
+function renderMy(){
+  const okAll=history.filter(h=>h.verdict==='ok');
+  document.getElementById('my-count').textContent=history.length;
+  if(okAll.length){
+    const avg=(okAll.reduce((s,h)=>s+h.saltPct,0)/okAll.length).toFixed(2);
+    document.getElementById('my-ideal').textContent=avg+'%';
+    document.getElementById('my-desc').textContent=`「ちょうどいい」評価${okAll.length}件から算出`;
+  }
+  document.getElementById('my-type-list').innerHTML=Object.keys(IDEAL).map(t=>{
+    const v=getMyIdeal(t);
+    if(v===null) return `<div class="result-row"><span class="rname">${TYPE_LABEL[t]}</span><span class="rsub" style="color:var(--text2);">データなし</span></div>`;
+    const bar=Math.min(v/3*100,100).toFixed(1);
+    return `<div style="padding:8px 0;border-bottom:0.5px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+        <span style="color:var(--text);">${TYPE_LABEL[t]}</span>
+        <span style="color:var(--text);font-weight:600;">${v.toFixed(2)}% <span style="font-weight:400;color:var(--text2);">(標準${IDEAL[t]}%)</span></span>
+      </div>
+      <div style="height:6px;background:var(--bg2);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${bar}%;background:var(--text2);border-radius:99px;"></div>
+      </div>
+    </div>`;
+  }).join('');
+  const hl=document.getElementById('my-history');
+  if(!history.length){hl.innerHTML='<div class="empty">まだ評価履歴がありません</div>';return;}
+  hl.innerHTML=history.map(h=>`
+    <div class="history-item">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="font-size:14px;color:var(--text);">${h.dish}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text);">${h.saltPct}%</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px;">${TYPE_LABEL[h.type]} ・ ${h.date} ・ ${h.verdict==='ok'?'ちょうどいい':h.verdict==='low'?'薄い':h.verdict==='high'?'濃い':'未評価'}</div>
+    </div>
+  `).join('');
+}
+
+renderCondList();
+renderLib();
+</script>
+</body>
+</html>
