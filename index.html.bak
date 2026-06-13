@@ -190,10 +190,20 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
   <!-- 調味料ライブラリタブ -->
   <div class="screen" id="s-lib">
     <div class="card" style="margin-top:8px;">
-      <div class="card-title">調味料を追加登録</div>
+      <div class="card-title">調味料を登録</div>
+      <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="onPhotoCapture(event)" />
+      <button class="btn" style="margin-bottom:10px;" onclick="document.getElementById('photo-input').click()">
+        <i class="ti ti-camera" style="margin-right:6px;vertical-align:-2px;"></i>ボトルを撮影して登録
+      </button>
+      <div id="photo-preview-wrap" style="display:none;margin-bottom:10px;text-align:center;">
+        <img id="photo-preview-img" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);border:0.5px solid var(--border);" />
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8;background:var(--bg2);border-radius:var(--radius);padding:8px;">
+          📋 ラベルの「食塩相当量」g/100g の数値を<br>そのまま下の「塩分濃度 %」に入力してください
+        </div>
+      </div>
       <div class="row2">
-        <div><label>調味料名</label><input type="text" id="lib-name" placeholder="例：魚醤" /></div>
-        <div><label>塩分濃度（%）</label><input type="number" id="lib-pct" placeholder="例：20" step="0.1" /></div>
+        <div><label>調味料名</label><input type="text" id="lib-name" placeholder="例：キッコーマン醤油" /></div>
+        <div><label>塩分濃度（%）</label><input type="number" id="lib-pct" placeholder="例：14.5" step="0.1" /></div>
       </div>
       <div class="row2">
         <div><label>大さじ1（ml or g）</label><input type="number" id="lib-ml" placeholder="例：18" /></div>
@@ -212,7 +222,10 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
       <button class="btn btn-primary" onclick="addLib()">登録する</button>
     </div>
     <div class="card">
-      <div class="card-title">登録済み調味料</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0;">登録済み調味料</div>
+        <span style="font-size:12px;color:var(--text2);" id="lib-count"></span>
+      </div>
       <div id="lib-list"></div>
     </div>
   </div>
@@ -267,7 +280,7 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
 const IDEAL={nitsuke:1.2,soup:0.8,stir:1.0,teriyaki:1.5,salad:0.8,pickles:2.0};
 const TYPE_LABEL={nitsuke:'煮物・煮魚',soup:'汁物',stir:'炒め物',teriyaki:'照り焼き',salad:'和え物',pickles:'漬け物'};
 
-let library=[
+const PRESETS=[
   {name:'醤油（濃口）',pct:14.5,ml:18,cat:'醤油系'},
   {name:'醤油（薄口）',pct:16.0,ml:18,cat:'醤油系'},
   {name:'たまり醤油',pct:16.5,ml:18,cat:'醤油系'},
@@ -294,6 +307,8 @@ let library=[
   {name:'ウスターソース',pct:8.5,ml:18,cat:'その他'},
   {name:'豆板醤',pct:15.0,ml:15,cat:'その他'},
 ];
+let library=JSON.parse(localStorage.getItem('shiomai-library')||'null')||[...PRESETS];
+let libPhotoThumb=null;
 
 let condList=[];
 let recipes=JSON.parse(localStorage.getItem('shiomai-recipes')||'[]');
@@ -304,6 +319,34 @@ let currentRecipeIdx=null;
 function saveToStorage(){
   localStorage.setItem('shiomai-recipes',JSON.stringify(recipes));
   localStorage.setItem('shiomai-history',JSON.stringify(history));
+}
+
+function saveLib(){
+  localStorage.setItem('shiomai-library',JSON.stringify(library));
+}
+
+function onPhotoCapture(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement('canvas');
+      const maxW=400,maxH=400;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      libPhotoThumb=canvas.toDataURL('image/jpeg',0.75);
+      document.getElementById('photo-preview-img').src=libPhotoThumb;
+      document.getElementById('photo-preview-wrap').style.display='block';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
 }
 
 function showTab(t){
@@ -531,19 +574,36 @@ function addLib(){
   const ml=parseFloat(document.getElementById('lib-ml').value)||18;
   const cat=document.getElementById('lib-cat').value;
   if(!name||isNaN(pct)){alert('名前と塩分濃度を入力してください');return;}
-  library.push({name,pct,ml,cat});
+  library.push({name,pct,ml,cat,photo:libPhotoThumb||null});
   ['lib-name','lib-pct','lib-ml'].forEach(id=>document.getElementById(id).value='');
+  libPhotoThumb=null;
+  document.getElementById('photo-preview-wrap').style.display='none';
+  document.getElementById('photo-preview-img').src='';
+  saveLib();
+  renderLib();
+}
+
+function delLib(i){
+  library.splice(i,1);
+  saveLib();
   renderLib();
 }
 
 function renderLib(){
-  document.getElementById('lib-list').innerHTML=library.map((l,i)=>`
+  const el=document.getElementById('lib-list');
+  document.getElementById('lib-count').textContent=library.length+'種';
+  if(!library.length){el.innerHTML='<div class="empty">まだ登録されていません<br><span style="font-size:12px;">上のフォームから追加できます</span></div>';return;}
+  el.innerHTML=library.map((l,i)=>`
     <div class="lib-item">
-      <div>
-        <div style="font-size:14px;color:var(--text);">${l.name}</div>
+      ${l.photo
+        ?`<img src="${l.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-right:10px;flex-shrink:0;" />`
+        :`<div style="width:40px;height:40px;background:var(--bg2);border-radius:6px;margin-right:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="ti ti-bottle" style="font-size:18px;color:var(--text3);"></i></div>`
+      }
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name}</div>
         <div style="font-size:11px;color:var(--text2);">塩分${l.pct}% ／ 大さじ1≒${l.ml}ml ／ ${l.cat}</div>
       </div>
-      <span class="del-btn" onclick="library.splice(${i},1);renderLib()"><i class="ti ti-x"></i></span>
+      <span class="del-btn" onclick="delLib(${i})"><i class="ti ti-x"></i></span>
     </div>
   `).join('');
 }
