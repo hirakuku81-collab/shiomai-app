@@ -192,22 +192,37 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
   <div class="screen" id="s-lib">
     <div class="card" style="margin-top:8px;">
       <div class="card-title">調味料を登録</div>
-      <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none" onchange="onPhotoCapture(event)" />
-      <button class="btn" style="margin-bottom:10px;" onclick="document.getElementById('photo-input').click()">
-        <i class="ti ti-camera" style="margin-right:6px;vertical-align:-2px;"></i>ボトルを撮影して登録
-      </button>
-      <div id="photo-preview-wrap" style="display:none;margin-bottom:10px;text-align:center;">
-        <img id="photo-preview-img" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);border:0.5px solid var(--border);" />
-        <div id="ocr-status" style="margin-top:8px;font-size:13px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px;line-height:1.6;"></div>
+      <input type="file" id="photo-front-input" accept="image/*" capture="environment" style="display:none" onchange="onFrontPhotoCapture(event)" />
+      <input type="file" id="photo-back-input" accept="image/*" capture="environment" style="display:none" onchange="onBackPhotoCapture(event)" />
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;font-weight:500;">📸 写真から自動入力（任意）</div>
+      <div class="row2" style="margin-bottom:8px;">
+        <div>
+          <button class="btn" style="font-size:13px;" onclick="document.getElementById('photo-front-input').click()">
+            <i class="ti ti-camera" style="margin-right:4px;vertical-align:-2px;"></i>① 正面を撮影
+          </button>
+          <div id="front-preview-wrap" style="display:none;margin-top:6px;text-align:center;">
+            <img id="front-preview-img" style="max-height:90px;object-fit:contain;border-radius:var(--radius);border:0.5px solid var(--border);" />
+            <div style="font-size:11px;color:var(--success);margin-top:3px;">✅ 取得済み</div>
+          </div>
+        </div>
+        <div>
+          <button class="btn" style="font-size:13px;" onclick="document.getElementById('photo-back-input').click()">
+            <i class="ti ti-scan" style="margin-right:4px;vertical-align:-2px;"></i>② 裏面でAI読み取り
+          </button>
+        </div>
+      </div>
+      <div id="ocr-status" style="display:none;margin-bottom:10px;font-size:13px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px;line-height:1.6;"></div>
+      <div class="row2">
+        <div><label>調味料名（種類）</label><input type="text" id="lib-name" placeholder="例：濃口醤油" /></div>
+        <div><label>ブランド名</label><input type="text" id="lib-brand" placeholder="例：キッコーマン" /></div>
       </div>
       <div class="row2">
-        <div><label>調味料名</label><input type="text" id="lib-name" placeholder="例：キッコーマン醤油" /></div>
         <div><label>塩分濃度（%）</label><input type="number" id="lib-pct" placeholder="例：14.5" step="0.1" /></div>
+        <div><label>大さじ1（ml or g）</label><input type="number" id="lib-ml" placeholder="例：18" /></div>
       </div>
       <div class="row2">
-        <div><label>大さじ1（ml or g）</label><input type="number" id="lib-ml" placeholder="例：18" /></div>
-        <div><label>カテゴリ</label>
-          <select id="lib-cat">
+        <div><label>大分類</label>
+          <select id="lib-cat" onchange="updateSubcats()">
             <option value="醤油系">醤油系</option>
             <option value="みそ系">みそ系</option>
             <option value="塩系">塩系</option>
@@ -217,6 +232,7 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
             <option value="その他">その他</option>
           </select>
         </div>
+        <div><label>中分類</label><select id="lib-subcat"></select></div>
       </div>
       <button class="btn btn-primary" onclick="addLib()">登録する</button>
     </div>
@@ -298,35 +314,44 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
 const IDEAL={nitsuke:1.2,soup:0.8,stir:1.0,teriyaki:1.5,salad:0.8,pickles:2.0};
 const TYPE_LABEL={nitsuke:'煮物・煮魚',soup:'汁物',stir:'炒め物',teriyaki:'照り焼き',salad:'和え物',pickles:'漬け物'};
 
+const SUBCATS={
+  '醤油系':['濃口醤油','薄口醤油','たまり醤油','減塩醤油','白醤油'],
+  'みそ系':['合わせみそ','白みそ','赤みそ','麦みそ','減塩みそ'],
+  '塩系':['食塩','岩塩','海塩','フレーバーソルト'],
+  'だし系':['かつおだし','昆布だし','合わせだし','白だし','めんつゆ','コンソメ','鶏がらスープ'],
+  '酒系':['料理酒','日本酒','みりん','みりん風調味料','白ワイン','赤ワイン'],
+  '甘味系':['上白糖','三温糖','きび砂糖','はちみつ','グラニュー糖'],
+  'その他':['魚醤','オイスターソース','ウスターソース','ポン酢','豆板醤','コチュジャン','ナンプラー','ケチャップ','マヨネーズ']
+};
 const PRESETS=[
-  {name:'醤油（濃口）',pct:14.5,ml:18,cat:'醤油系'},
-  {name:'醤油（薄口）',pct:16.0,ml:18,cat:'醤油系'},
-  {name:'たまり醤油',pct:16.5,ml:18,cat:'醤油系'},
-  {name:'減塩醤油',pct:9.0,ml:18,cat:'醤油系'},
-  {name:'味噌（合わせ）',pct:12.0,ml:18,cat:'みそ系'},
-  {name:'味噌（白）',pct:6.0,ml:18,cat:'みそ系'},
-  {name:'味噌（赤）',pct:13.0,ml:18,cat:'みそ系'},
-  {name:'塩',pct:99.0,ml:6,cat:'塩系'},
-  {name:'岩塩',pct:99.0,ml:6,cat:'塩系'},
-  {name:'みりん（本みりん）',pct:0.0,ml:18,cat:'甘味系'},
-  {name:'みりん風調味料',pct:1.5,ml:18,cat:'甘味系'},
-  {name:'砂糖',pct:0.0,ml:9,cat:'甘味系'},
-  {name:'料理酒',pct:2.0,ml:18,cat:'酒系'},
-  {name:'日本酒',pct:0.0,ml:18,cat:'酒系'},
-  {name:'白ワイン',pct:0.0,ml:18,cat:'酒系'},
-  {name:'粉末だし（かつお）',pct:40.0,ml:5,cat:'だし系'},
-  {name:'粉末だし（昆布）',pct:25.0,ml:5,cat:'だし系'},
-  {name:'顆粒だし（ほんだし）',pct:40.0,ml:5,cat:'だし系'},
-  {name:'白だし',pct:10.0,ml:18,cat:'だし系'},
-  {name:'めんつゆ（3倍濃縮）',pct:8.0,ml:18,cat:'だし系'},
-  {name:'魚醤（ナンプラー）',pct:20.0,ml:18,cat:'その他'},
-  {name:'魚醤（いしる）',pct:22.0,ml:18,cat:'その他'},
-  {name:'オイスターソース',pct:11.0,ml:18,cat:'その他'},
-  {name:'ウスターソース',pct:8.5,ml:18,cat:'その他'},
-  {name:'豆板醤',pct:15.0,ml:15,cat:'その他'},
+  {name:'濃口醤油',brand:'',pct:14.5,ml:18,cat:'醤油系',subcat:'濃口醤油'},
+  {name:'薄口醤油',brand:'',pct:16.0,ml:18,cat:'醤油系',subcat:'薄口醤油'},
+  {name:'たまり醤油',brand:'',pct:16.5,ml:18,cat:'醤油系',subcat:'たまり醤油'},
+  {name:'減塩醤油',brand:'',pct:9.0,ml:18,cat:'醤油系',subcat:'減塩醤油'},
+  {name:'合わせみそ',brand:'',pct:12.0,ml:18,cat:'みそ系',subcat:'合わせみそ'},
+  {name:'白みそ',brand:'',pct:6.0,ml:18,cat:'みそ系',subcat:'白みそ'},
+  {name:'赤みそ',brand:'',pct:13.0,ml:18,cat:'みそ系',subcat:'赤みそ'},
+  {name:'食塩',brand:'',pct:99.0,ml:6,cat:'塩系',subcat:'食塩'},
+  {name:'岩塩',brand:'',pct:99.0,ml:6,cat:'塩系',subcat:'岩塩'},
+  {name:'みりん',brand:'',pct:0.0,ml:18,cat:'酒系',subcat:'みりん'},
+  {name:'みりん風調味料',brand:'',pct:1.5,ml:18,cat:'酒系',subcat:'みりん風調味料'},
+  {name:'上白糖',brand:'',pct:0.0,ml:9,cat:'甘味系',subcat:'上白糖'},
+  {name:'料理酒',brand:'',pct:2.0,ml:18,cat:'酒系',subcat:'料理酒'},
+  {name:'日本酒',brand:'',pct:0.0,ml:18,cat:'酒系',subcat:'日本酒'},
+  {name:'白ワイン',brand:'',pct:0.0,ml:18,cat:'酒系',subcat:'白ワイン'},
+  {name:'かつおだし（粉末）',brand:'',pct:40.0,ml:5,cat:'だし系',subcat:'かつおだし'},
+  {name:'昆布だし（粉末）',brand:'',pct:25.0,ml:5,cat:'だし系',subcat:'昆布だし'},
+  {name:'合わせだし（顆粒）',brand:'',pct:40.0,ml:5,cat:'だし系',subcat:'合わせだし'},
+  {name:'白だし',brand:'',pct:10.0,ml:18,cat:'だし系',subcat:'白だし'},
+  {name:'めんつゆ（3倍濃縮）',brand:'',pct:8.0,ml:18,cat:'だし系',subcat:'めんつゆ'},
+  {name:'ナンプラー',brand:'',pct:20.0,ml:18,cat:'その他',subcat:'ナンプラー'},
+  {name:'魚醤（いしる）',brand:'',pct:22.0,ml:18,cat:'その他',subcat:'魚醤'},
+  {name:'オイスターソース',brand:'',pct:11.0,ml:18,cat:'その他',subcat:'オイスターソース'},
+  {name:'ウスターソース',brand:'',pct:8.5,ml:18,cat:'その他',subcat:'ウスターソース'},
+  {name:'豆板醤',brand:'',pct:15.0,ml:15,cat:'その他',subcat:'豆板醤'},
 ];
 let library=JSON.parse(localStorage.getItem('shiomai-library')||'null')||[...PRESETS];
-let libPhotoThumb=null;
+let libFrontPhotoThumb=null;
 
 let condList=[];
 let recipes=JSON.parse(localStorage.getItem('shiomai-recipes')||'[]');
@@ -386,18 +411,16 @@ async function testGeminiKey(){
   btn.textContent='接続テスト';btn.disabled=false;
 }
 
-async function callGeminiOCR(base64Image,apiKey){
-  const prompt=`この画像は調味料のラベルです。以下の2点を読み取り、JSONのみ返してください。前置き・説明文は不要です。
-{"name":"商品名（メーカー名を含む正式名称）","salt_per_100g":食塩相当量の数値}
-・食塩相当量はラベルの「食塩相当量」欄のg数（100gまたは100mlあたり）
-・読み取れない項目はnullまたは""
-・返答はJSONのみ`;
+async function callGeminiOCR(imageParts,apiKey){
+  const prompt=`以下の調味料ラベル画像から情報を読み取り、JSONのみ返してください。説明文不要。
+{"name":"調味料の種類名（例：濃口醤油・合わせみそ・コンソメ・鶏がらスープ）","brand":"ブランド・メーカー名（例：キッコーマン・味の素・ユウキ）","salt_per_100g":食塩相当量の数値(100gまたは100mlあたりのg),"cat":"大分類（醤油系/みそ系/塩系/だし系/酒系/甘味系/その他 のいずれか）","subcat":"中分類（例：濃口醤油・コンソメ・鶏がらスープ・ナンプラー）"}
+読み取れない項目はnullまたは""。JSONのみ。`;
   try{
     const res=await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {method:'POST',headers:{'Content-Type':'application/json'},
        body:JSON.stringify({
-         contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64Image}}]}],
+         contents:[{parts:[{text:prompt},...imageParts]}],
          generationConfig:{temperature:0.1}
        })}
     );
@@ -411,11 +434,45 @@ async function callGeminiOCR(base64Image,apiKey){
     console.log('Gemini response:',text);
     const m=text.match(/\{[\s\S]*\}/);
     if(!m) return {_error:'AIの返答からJSONを取得できませんでした'};
-    try{return JSON.parse(m[0]);}catch(e){return {_error:'JSON解析エラー: '+m[0].slice(0,50)};}
+    try{return JSON.parse(m[0]);}catch(e){return {_error:'JSON解析エラー'};}
   }catch(e){console.error('OCR error:',e);return {_error:'通信エラー: '+e.message};}
 }
 
-async function onPhotoCapture(event){
+function makeOcrBase64(img,file,originalDataUrl){
+  if(file.size<=3*1024*1024) return originalDataUrl.split(',')[1];
+  const oc=document.createElement('canvas');
+  const om=1600;let ow=img.width,oh=img.height;
+  if(ow>om){oh=Math.round(oh*om/ow);ow=om;}
+  if(oh>om){ow=Math.round(ow*om/oh);oh=om;}
+  oc.width=ow;oc.height=oh;
+  oc.getContext('2d').drawImage(img,0,0,ow,oh);
+  return oc.toDataURL('image/jpeg',0.95).split(',')[1];
+}
+
+function onFrontPhotoCapture(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const tc=document.createElement('canvas');
+      const tm=300;let tw=img.width,th=img.height;
+      if(tw>tm){th=Math.round(th*tm/tw);tw=tm;}
+      if(th>tm){tw=Math.round(tw*tm/th);th=tm;}
+      tc.width=tw;tc.height=th;
+      tc.getContext('2d').drawImage(img,0,0,tw,th);
+      libFrontPhotoThumb=tc.toDataURL('image/jpeg',0.75);
+      document.getElementById('front-preview-img').src=libFrontPhotoThumb;
+      document.getElementById('front-preview-wrap').style.display='block';
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+
+async function onBackPhotoCapture(event){
   const file=event.target.files[0];
   if(!file) return;
   const reader=new FileReader();
@@ -423,52 +480,41 @@ async function onPhotoCapture(event){
     const originalDataUrl=e.target.result;
     const img=new Image();
     img.onload=async function(){
-      // サムネイル（表示・保存用）
-      const tc=document.createElement('canvas');
-      const tm=300;let tw=img.width,th=img.height;
-      if(tw>tm){th=Math.round(th*tm/tw);tw=tm;}
-      if(th>tm){tw=Math.round(tw*tm/th);th=tm;}
-      tc.width=tw;tc.height=th;
-      tc.getContext('2d').drawImage(img,0,0,tw,th);
-      libPhotoThumb=tc.toDataURL('image/jpeg',0.75);
-      document.getElementById('photo-preview-img').src=libPhotoThumb;
-      document.getElementById('photo-preview-wrap').style.display='block';
-
       const statusEl=document.getElementById('ocr-status');
+      statusEl.style.display='block';
+      statusEl.style.color='';
       const apiKey=localStorage.getItem('shiomai-gemini-key')||'';
       if(!apiKey){
-        statusEl.textContent='⚙ 右上の設定からAPIキーを登録すると商品名・塩分が自動入力されます';
+        statusEl.textContent='⚙ 右上の設定からAPIキーを登録すると自動入力されます';
         return;
       }
-      statusEl.textContent='🔍 AIが読み取り中...';
-
-      // OCR用：ファイルが小さければ元データを使用（高品質）、大きければ1600pxにリサイズ
-      let ocrBase64;
-      if(file.size<=3*1024*1024){
-        ocrBase64=originalDataUrl.split(',')[1];
-      }else{
-        const oc=document.createElement('canvas');
-        const om=1600;let ow=img.width,oh=img.height;
-        if(ow>om){oh=Math.round(oh*om/ow);ow=om;}
-        if(oh>om){ow=Math.round(ow*om/oh);oh=om;}
-        oc.width=ow;oc.height=oh;
-        oc.getContext('2d').drawImage(img,0,0,ow,oh);
-        ocrBase64=oc.toDataURL('image/jpeg',0.95).split(',')[1];
-      }
-
-      const result=await callGeminiOCR(ocrBase64,apiKey);
+      statusEl.textContent='🔍 AIが2枚の写真を読み取り中...';
+      const backBase64=makeOcrBase64(img,file,originalDataUrl);
+      const imageParts=[];
+      if(libFrontPhotoThumb) imageParts.push({inline_data:{mime_type:'image/jpeg',data:libFrontPhotoThumb.split(',')[1]}});
+      imageParts.push({inline_data:{mime_type:'image/jpeg',data:backBase64}});
+      const result=await callGeminiOCR(imageParts,apiKey);
       if(result&&result._error){
         statusEl.textContent='❌ '+result._error;
         statusEl.style.color='var(--danger)';
       }else if(result){
         if(result.name) document.getElementById('lib-name').value=result.name;
+        if(result.brand) document.getElementById('lib-brand').value=result.brand;
         if(result.salt_per_100g!=null) document.getElementById('lib-pct').value=result.salt_per_100g;
-        const filled=result.name||result.salt_per_100g!=null;
+        if(result.cat){
+          const cs=document.getElementById('lib-cat');
+          if([...cs.options].some(o=>o.value===result.cat)){cs.value=result.cat;updateSubcats();}
+        }
+        if(result.subcat){
+          const ss=document.getElementById('lib-subcat');
+          if([...ss.options].some(o=>o.value===result.subcat))ss.value=result.subcat;
+        }
+        const filled=result.name||result.brand||result.salt_per_100g!=null;
         statusEl.style.color='';
-        statusEl.textContent=filled?'✅ 読み取り完了。内容を確認して「登録する」を押してください':'⚠️ ラベルが読み取れませんでした。手動で入力してください';
+        statusEl.textContent=filled?'✅ 読み取り完了。内容を確認して「登録する」を押してください':'⚠️ 読み取れませんでした。手動で入力してください';
       }else{
         statusEl.style.color='';
-        statusEl.textContent='⚠️ ラベルが読み取れませんでした。手動で入力してください';
+        statusEl.textContent='⚠️ 読み取れませんでした。手動で入力してください';
       }
     };
     img.src=originalDataUrl;
@@ -499,14 +545,21 @@ function handleModalBg(e){if(e.target===document.getElementById('cond-modal'))cl
 
 function renderModalList(){
   const q=document.getElementById('modal-search').value.toLowerCase();
-  const filtered=library.filter(l=>l.name.toLowerCase().includes(q));
+  const filtered=library.filter(l=>{
+    const dn=libDisplayName(l);
+    return dn.toLowerCase().includes(q)||(l.subcat||'').toLowerCase().includes(q);
+  });
   const cats=[...new Set(filtered.map(l=>l.cat))];
   let html='';
   cats.forEach(cat=>{
     html+=`<div class="cat-label">${cat}</div>`;
     filtered.filter(l=>l.cat===cat).forEach(l=>{
-      html+=`<div class="cond-pick" onclick="pickCond('${l.name.replace(/'/g,"\\'")}',${l.pct},${l.ml})">
-        <span style="font-size:14px;color:var(--text);">${l.name}</span>
+      const dn=libDisplayName(l);
+      html+=`<div class="cond-pick" onclick="pickCond('${dn.replace(/'/g,"\\'")}',${l.pct},${l.ml})">
+        <div>
+          <div style="font-size:14px;color:var(--text);">${dn}</div>
+          ${l.subcat?`<div style="font-size:11px;color:var(--text2);">${l.subcat}</div>`:''}
+        </div>
         <span style="font-size:12px;color:var(--text2);">塩分 ${l.pct}%</span>
       </div>`;
     });
@@ -698,17 +751,28 @@ function deleteRecipe(){
 
 function addLib(){
   const name=document.getElementById('lib-name').value.trim();
+  const brand=document.getElementById('lib-brand').value.trim();
   const pct=parseFloat(document.getElementById('lib-pct').value);
   const ml=parseFloat(document.getElementById('lib-ml').value)||18;
   const cat=document.getElementById('lib-cat').value;
-  if(!name||isNaN(pct)){alert('名前と塩分濃度を入力してください');return;}
-  library.push({name,pct,ml,cat,photo:libPhotoThumb||null});
-  ['lib-name','lib-pct','lib-ml'].forEach(id=>document.getElementById(id).value='');
-  libPhotoThumb=null;
-  document.getElementById('photo-preview-wrap').style.display='none';
-  document.getElementById('photo-preview-img').src='';
+  const subcat=document.getElementById('lib-subcat').value;
+  if(!name||isNaN(pct)){alert('調味料名と塩分濃度を入力してください');return;}
+  library.push({name,brand,pct,ml,cat,subcat,photo:libFrontPhotoThumb||null});
+  ['lib-name','lib-brand','lib-pct','lib-ml'].forEach(id=>document.getElementById(id).value='');
+  libFrontPhotoThumb=null;
+  document.getElementById('front-preview-wrap').style.display='none';
+  document.getElementById('front-preview-img').src='';
+  const s=document.getElementById('ocr-status');s.style.display='none';s.textContent='';
   saveLib();
   renderLib();
+}
+
+function libDisplayName(l){return l.brand?l.brand+' '+l.name:l.name;}
+
+function updateSubcats(){
+  const cat=document.getElementById('lib-cat').value;
+  const subs=SUBCATS[cat]||[];
+  document.getElementById('lib-subcat').innerHTML=subs.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
 
 function delLib(i){
@@ -721,19 +785,21 @@ function renderLib(){
   const el=document.getElementById('lib-list');
   document.getElementById('lib-count').textContent=library.length+'種';
   if(!library.length){el.innerHTML='<div class="empty">まだ登録されていません<br><span style="font-size:12px;">上のフォームから追加できます</span></div>';return;}
-  el.innerHTML=library.map((l,i)=>`
-    <div class="lib-item">
+  el.innerHTML=library.map((l,i)=>{
+    const dn=libDisplayName(l);
+    const sub=l.subcat?'・'+l.subcat:'';
+    return `<div class="lib-item">
       ${l.photo
         ?`<img src="${l.photo}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;margin-right:10px;flex-shrink:0;" />`
         :`<div style="width:40px;height:40px;background:var(--bg2);border-radius:6px;margin-right:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><i class="ti ti-bottle" style="font-size:18px;color:var(--text3);"></i></div>`
       }
       <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${l.name}</div>
-        <div style="font-size:11px;color:var(--text2);">塩分${l.pct}% ／ 大さじ1≒${l.ml}ml ／ ${l.cat}</div>
+        <div style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
+        <div style="font-size:11px;color:var(--text2);">塩分${l.pct}% ／ 大さじ1≒${l.ml}ml ／ ${l.cat}${sub}</div>
       </div>
       <span class="del-btn" onclick="delLib(${i})"><i class="ti ti-x"></i></span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function getMyIdeal(type){
@@ -779,6 +845,7 @@ function renderMy(){
 
 renderCondList();
 renderLib();
+updateSubcats();
 </script>
 </body>
 </html>
