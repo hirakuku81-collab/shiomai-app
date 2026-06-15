@@ -213,7 +213,7 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
       </div>
       <div id="ocr-status" style="display:none;margin-bottom:10px;font-size:13px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px;line-height:1.6;"></div>
       <div class="row2">
-        <div><label>調味料名（種類）</label><input type="text" id="lib-name" placeholder="例：濃口醤油" /></div>
+        <div><label>商品名</label><input type="text" id="lib-name" placeholder="例：特選丸大豆しょうゆ" /></div>
         <div><label>ブランド名</label><input type="text" id="lib-brand" placeholder="例：キッコーマン" /></div>
       </div>
       <div class="row2">
@@ -299,6 +299,45 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
       </div>
       <div id="test-result" style="font-size:13px;text-align:center;margin-bottom:10px;display:none;"></div>
       <button class="btn" onclick="closeSettings()" style="margin-top:4px;">閉じる</button>
+    </div>
+  </div>
+
+  <!-- 調味料編集モーダル -->
+  <div class="modal-bg" id="lib-edit-modal" onclick="handleLibEditBg(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title"><i class="ti ti-pencil" style="margin-right:6px;vertical-align:-2px;"></i>調味料を編集</div>
+      <input type="hidden" id="edit-lib-index" />
+      <div class="row2">
+        <div><label>商品名</label><input type="text" id="edit-lib-name" placeholder="例：特選丸大豆しょうゆ" /></div>
+        <div><label>ブランド名</label><input type="text" id="edit-lib-brand" placeholder="例：キッコーマン" /></div>
+      </div>
+      <div class="row2">
+        <div><label>塩分濃度（%）</label><input type="number" id="edit-lib-pct" placeholder="例：14.5" step="0.1" /></div>
+        <div><label>大さじ1（ml）</label><input type="number" id="edit-lib-ml" placeholder="例：18" /></div>
+      </div>
+      <div class="row2">
+        <div>
+          <label>大分類</label>
+          <select id="edit-lib-cat" onchange="updateEditSubcats()">
+            <option value="醤油系">醤油系</option>
+            <option value="みそ系">みそ系</option>
+            <option value="塩系">塩系</option>
+            <option value="だし系">だし系</option>
+            <option value="酒系">酒系</option>
+            <option value="甘味系">甘味系</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div>
+          <label>中分類</label>
+          <select id="edit-lib-subcat"></select>
+        </div>
+      </div>
+      <div class="row2" style="margin-top:8px;">
+        <button class="btn btn-primary" onclick="saveLibEdit()">保存する</button>
+        <button class="btn" onclick="closeLibEdit()">キャンセル</button>
+      </div>
     </div>
   </div>
 
@@ -415,7 +454,7 @@ async function callGeminiOCR(imageParts,apiKey){
   const prompt=`調味料ラベルの写真です。複数枚ある場合、1枚目が正面ラベル・2枚目が裏面ラベルです。すべての画像を参照して情報を読み取り、JSONのみ返してください。説明文不要。
 ・name・brandは正面ラベルを優先（裏面にしか記載がなければ裏面から読む）
 ・salt_per_100gは裏面の栄養成分表の「食塩相当量」欄を読む（正面ラベルに記載がある場合はそちらも可）
-{"name":"調味料の種類名（例：濃口醤油・合わせみそ・コンソメ・鶏がらスープ）","brand":"ブランド・メーカー名（例：キッコーマン・味の素・ユウキ）","salt_per_100g":食塩相当量の数値(100gまたは100mlあたりのg),"cat":"大分類（醤油系/みそ系/塩系/だし系/酒系/甘味系/その他 のいずれか）","subcat":"中分類（例：濃口醤油・コンソメ・鶏がらスープ・ナンプラー）"}
+{"name":"商品名（例：特選丸大豆しょうゆ・本みりん・鶏がらスープの素）","brand":"ブランド・メーカー名（例：キッコーマン・味の素・ユウキ）","salt_per_100g":食塩相当量の数値(100gまたは100mlあたりのg),"cat":"大分類（醤油系/みそ系/塩系/だし系/酒系/甘味系/その他 のいずれか）","subcat":"中分類（例：濃口醤油・コンソメ・鶏がらスープ・ナンプラー）"}
 読み取れない項目はnullまたは""。JSONのみ。`;
   try{
     const res=await fetch(
@@ -769,7 +808,7 @@ function addLib(){
   renderLib();
 }
 
-function libDisplayName(l){return l.brand?l.brand+' '+l.name:l.name;}
+function libDisplayName(l){return l.brand?l.name+' '+l.brand:l.name;}
 
 function updateSubcats(){
   const cat=document.getElementById('lib-cat').value;
@@ -781,6 +820,52 @@ function delLib(i){
   library.splice(i,1);
   saveLib();
   renderLib();
+}
+
+function editLib(i){
+  const l=library[i];
+  document.getElementById('edit-lib-index').value=i;
+  document.getElementById('edit-lib-name').value=l.name||'';
+  document.getElementById('edit-lib-brand').value=l.brand||'';
+  document.getElementById('edit-lib-pct').value=l.pct||'';
+  document.getElementById('edit-lib-ml').value=l.ml||18;
+  document.getElementById('edit-lib-cat').value=l.cat||'その他';
+  updateEditSubcats();
+  document.getElementById('edit-lib-subcat').value=l.subcat||'';
+  document.getElementById('lib-edit-modal').style.display='flex';
+}
+
+function updateEditSubcats(){
+  const cat=document.getElementById('edit-lib-cat').value;
+  const subs=SUBCATS[cat]||[];
+  document.getElementById('edit-lib-subcat').innerHTML=subs.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+
+function saveLibEdit(){
+  const i=parseInt(document.getElementById('edit-lib-index').value);
+  const name=document.getElementById('edit-lib-name').value.trim();
+  const pct=parseFloat(document.getElementById('edit-lib-pct').value);
+  if(!name||isNaN(pct)){alert('商品名と塩分濃度を入力してください');return;}
+  library[i]={
+    ...library[i],
+    name,
+    brand:document.getElementById('edit-lib-brand').value.trim(),
+    pct,
+    ml:parseFloat(document.getElementById('edit-lib-ml').value)||18,
+    cat:document.getElementById('edit-lib-cat').value,
+    subcat:document.getElementById('edit-lib-subcat').value
+  };
+  saveLib();
+  renderLib();
+  closeLibEdit();
+}
+
+function closeLibEdit(){
+  document.getElementById('lib-edit-modal').style.display='none';
+}
+
+function handleLibEditBg(e){
+  if(e.target===document.getElementById('lib-edit-modal')) closeLibEdit();
 }
 
 function renderLib(){
@@ -799,7 +884,8 @@ function renderLib(){
         <div style="font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dn}</div>
         <div style="font-size:11px;color:var(--text2);">塩分${l.pct}% ／ 大さじ1≒${l.ml}ml ／ ${l.cat}${sub}</div>
       </div>
-      <span class="del-btn" onclick="delLib(${i})"><i class="ti ti-x"></i></span>
+      <span class="del-btn" style="margin-left:4px;" onclick="editLib(${i})" title="編集"><i class="ti ti-pencil"></i></span>
+      <span class="del-btn" style="margin-left:4px;" onclick="delLib(${i})" title="削除"><i class="ti ti-x"></i></span>
     </div>`;
   }).join('');
 }
