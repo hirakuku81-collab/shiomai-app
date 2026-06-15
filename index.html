@@ -81,6 +81,10 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
 .cond-pick:last-child{border-bottom:none;}
 .cond-pick:active{background:var(--bg2);}
 .cat-label{font-size:11px;font-weight:500;color:var(--text2);padding:10px 0 4px;letter-spacing:0.5px;text-transform:uppercase;}
+.cat-chip{display:inline-block;padding:6px 14px;border-radius:99px;border:1px solid var(--border);background:var(--bg2);font-size:13px;color:var(--text2);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;}
+.cat-chip.sel{background:var(--text);color:var(--bg);border-color:var(--text);}
+.chip-row{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.chip-row::-webkit-scrollbar{display:none;}
 .profile-stat{text-align:center;padding:14px;}
 .profile-num{font-size:28px;font-weight:600;color:var(--text);}
 .profile-label{font-size:12px;color:var(--text2);margin-top:2px;}
@@ -269,6 +273,11 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
     <div class="modal">
       <div class="modal-handle"></div>
       <div class="modal-title">調味料を選択</div>
+      <!-- 大分類フィルター -->
+      <div class="chip-row" id="modal-cat-row"></div>
+      <!-- 中分類フィルター（大分類選択後に表示） -->
+      <div class="chip-row" id="modal-subcat-row" style="display:none;"></div>
+      <!-- キーワード検索 -->
       <input type="text" id="modal-search" placeholder="名前で検索..." oninput="renderModalList()" style="margin-bottom:10px;" />
       <div id="modal-list"></div>
       <div style="margin-top:14px;padding-top:14px;border-top:0.5px solid var(--border);">
@@ -574,38 +583,83 @@ function showTab(t){
   if(t==='my') renderMy();
 }
 
+let modalCat=null,modalSubcat=null;
+
 function openCondModal(){
+  modalCat=null;
+  modalSubcat=null;
   document.getElementById('modal-search').value='';
   document.getElementById('custom-name').value='';
   document.getElementById('custom-pct').value='';
+  renderModalCatChips();
+  renderModalSubcatChips();
   renderModalList();
   document.getElementById('cond-modal').classList.add('open');
 }
 function closeCondModal(){document.getElementById('cond-modal').classList.remove('open');}
 function handleModalBg(e){if(e.target===document.getElementById('cond-modal'))closeCondModal();}
 
+function setModalCat(cat){
+  modalCat=modalCat===cat?null:cat;
+  modalSubcat=null;
+  renderModalCatChips();
+  renderModalSubcatChips();
+  renderModalList();
+}
+
+function setModalSubcat(sub){
+  modalSubcat=modalSubcat===sub?null:sub;
+  renderModalSubcatChips();
+  renderModalList();
+}
+
+function renderModalCatChips(){
+  const cats=Object.keys(SUBCATS);
+  const row=document.getElementById('modal-cat-row');
+  row.innerHTML=`<span class="cat-chip${modalCat===null?' sel':''}" onclick="setModalCat(null)">すべて</span>`
+    +cats.map(c=>`<span class="cat-chip${modalCat===c?' sel':''}" onclick="setModalCat('${c}')">${c}</span>`).join('');
+}
+
+function renderModalSubcatChips(){
+  const row=document.getElementById('modal-subcat-row');
+  if(!modalCat){row.style.display='none';row.innerHTML='';return;}
+  const subs=SUBCATS[modalCat]||[];
+  row.innerHTML=subs.map(s=>`<span class="cat-chip${modalSubcat===s?' sel':''}" onclick="setModalSubcat('${s}')">${s}</span>`).join('');
+  row.style.display='flex';
+}
+
 function renderModalList(){
   const q=document.getElementById('modal-search').value.toLowerCase();
-  const filtered=library.filter(l=>{
-    const dn=libDisplayName(l);
-    return dn.toLowerCase().includes(q)||(l.subcat||'').toLowerCase().includes(q);
+  let filtered=library.filter(l=>{
+    if(modalCat&&l.cat!==modalCat) return false;
+    if(modalSubcat&&l.subcat!==modalSubcat) return false;
+    if(q){const dn=libDisplayName(l);return dn.toLowerCase().includes(q)||(l.subcat||'').toLowerCase().includes(q);}
+    return true;
   });
-  const cats=[...new Set(filtered.map(l=>l.cat))];
   let html='';
-  cats.forEach(cat=>{
-    html+=`<div class="cat-label">${cat}</div>`;
-    filtered.filter(l=>l.cat===cat).forEach(l=>{
-      const dn=libDisplayName(l);
-      html+=`<div class="cond-pick" onclick="pickCond('${dn.replace(/'/g,"\\'")}',${l.pct},${l.ml})">
-        <div>
-          <div style="font-size:14px;color:var(--text);">${dn}</div>
-          ${l.subcat?`<div style="font-size:11px;color:var(--text2);">${l.subcat}</div>`:''}
-        </div>
-        <span style="font-size:12px;color:var(--text2);">塩分 ${l.pct}%</span>
-      </div>`;
+  if(!modalCat){
+    const cats=[...new Set(filtered.map(l=>l.cat))];
+    cats.forEach(cat=>{
+      const items=filtered.filter(l=>l.cat===cat);
+      if(!items.length) return;
+      html+=`<div class="cat-label">${cat}</div>`;
+      items.forEach(l=>{ html+=condPickHtml(l); });
     });
-  });
+  }else{
+    filtered.forEach(l=>{ html+=condPickHtml(l); });
+  }
   document.getElementById('modal-list').innerHTML=html||'<div class="empty" style="padding:1rem 0;">見つかりません</div>';
+}
+
+function condPickHtml(l){
+  const dn=libDisplayName(l);
+  return `<div class="cond-pick" onclick="pickCond('${dn.replace(/'/g,"\\'")}',${l.pct},${l.ml})">
+    <div>
+      <div style="font-size:14px;color:var(--text);">${dn}</div>
+      ${l.subcat?`<div style="font-size:11px;color:var(--text2);">${l.subcat}</div>`:''}
+    </div>
+    <span style="font-size:12px;color:var(--text2);">塩分 ${l.pct}%</span>
+  </div>`;
 }
 
 function pickCond(name,pct,ml){
