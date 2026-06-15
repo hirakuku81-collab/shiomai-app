@@ -94,8 +94,9 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
 </head>
 <body>
 <div class="phone">
-  <div class="topbar">
+  <div class="topbar" style="position:relative;">
     <h1><i class="ti ti-salt" style="font-size:16px;margin-right:6px;vertical-align:-2px;"></i>塩梅アプリ</h1>
+    <span onclick="openSettings()" style="position:absolute;right:16px;font-size:22px;color:var(--text2);cursor:pointer;-webkit-tap-highlight-color:transparent;"><i class="ti ti-settings"></i></span>
   </div>
 
   <!-- 計算タブ -->
@@ -197,9 +198,7 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
       </button>
       <div id="photo-preview-wrap" style="display:none;margin-bottom:10px;text-align:center;">
         <img id="photo-preview-img" style="max-width:100%;max-height:200px;object-fit:contain;border-radius:var(--radius);border:0.5px solid var(--border);" />
-        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8;background:var(--bg2);border-radius:var(--radius);padding:8px;">
-          📋 ラベルの「食塩相当量」g/100g の数値を<br>そのまま下の「塩分濃度 %」に入力してください
-        </div>
+        <div id="ocr-status" style="margin-top:8px;font-size:13px;color:var(--text2);background:var(--bg2);border-radius:var(--radius);padding:8px;line-height:1.6;"></div>
       </div>
       <div class="row2">
         <div><label>調味料名</label><input type="text" id="lib-name" placeholder="例：キッコーマン醤油" /></div>
@@ -268,6 +267,25 @@ textarea{resize:vertical;min-height:80px;font-size:14px;line-height:1.6;}
     </div>
   </div>
 
+  <!-- 設定モーダル -->
+  <div class="modal-bg" id="settings-modal" onclick="handleSettingsBg(event)">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-title"><i class="ti ti-settings" style="margin-right:6px;vertical-align:-2px;"></i>設定</div>
+      <label>Gemini APIキー</label>
+      <input type="text" id="settings-api-key" placeholder="AIzaSy..." style="font-size:12px;font-family:monospace;" />
+      <div style="font-size:12px;color:var(--text2);margin-top:-6px;margin-bottom:10px;">
+        aistudio.google.com で無料取得できます
+      </div>
+      <div class="row2" style="margin-bottom:10px;">
+        <button class="btn btn-primary" onclick="saveSettings()">保存する</button>
+        <button class="btn" id="test-key-btn" onclick="testGeminiKey()">接続テスト</button>
+      </div>
+      <div id="test-result" style="font-size:13px;text-align:center;margin-bottom:10px;display:none;"></div>
+      <button class="btn" onclick="closeSettings()" style="margin-top:4px;">閉じる</button>
+    </div>
+  </div>
+
   <div class="tab-bar">
     <div class="tab active" id="t-calc" onclick="showTab('calc')"><i class="ti ti-calculator"></i>計算</div>
     <div class="tab" id="t-recipe" onclick="showTab('recipe')"><i class="ti ti-book"></i>レシピ</div>
@@ -325,25 +343,135 @@ function saveLib(){
   localStorage.setItem('shiomai-library',JSON.stringify(library));
 }
 
-function onPhotoCapture(event){
+function openSettings(){
+  document.getElementById('settings-api-key').value=localStorage.getItem('shiomai-gemini-key')||'';
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings(){document.getElementById('settings-modal').classList.remove('open');}
+function handleSettingsBg(e){if(e.target===document.getElementById('settings-modal'))closeSettings();}
+function saveSettings(){
+  const key=document.getElementById('settings-api-key').value.trim();
+  localStorage.setItem('shiomai-gemini-key',key);
+  closeSettings();
+  alert('APIキーを保存しました');
+}
+
+async function testGeminiKey(){
+  const apiKey=document.getElementById('settings-api-key').value.trim();
+  if(!apiKey){alert('APIキーを入力してください');return;}
+  const btn=document.getElementById('test-key-btn');
+  const resultEl=document.getElementById('test-result');
+  btn.textContent='テスト中...';btn.disabled=true;
+  resultEl.style.display='none';
+  try{
+    const res=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({contents:[{parts:[{text:'「テスト」とだけ返してください'}]}]})}
+    );
+    const data=await res.json();
+    if(res.ok){
+      resultEl.textContent='✅ 接続成功！APIキーは正しく動作しています';
+      resultEl.style.color='var(--success)';
+    }else{
+      const msg=data.error?.message||`HTTPエラー ${res.status}`;
+      resultEl.textContent='❌ エラー: '+msg;
+      resultEl.style.color='var(--danger)';
+    }
+  }catch(e){
+    resultEl.textContent='❌ 通信エラー: '+e.message;
+    resultEl.style.color='var(--danger)';
+  }
+  resultEl.style.display='block';
+  btn.textContent='接続テスト';btn.disabled=false;
+}
+
+async function callGeminiOCR(base64Image,apiKey){
+  const prompt=`この画像は調味料のラベルです。以下の2点を読み取り、JSONのみ返してください。前置き・説明文は不要です。
+{"name":"商品名（メーカー名を含む正式名称）","salt_per_100g":食塩相当量の数値}
+・食塩相当量はラベルの「食塩相当量」欄のg数（100gまたは100mlあたり）
+・読み取れない項目はnullまたは""
+・返答はJSONのみ`;
+  try{
+    const res=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({
+         contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64Image}}]}],
+         generationConfig:{temperature:0.1}
+       })}
+    );
+    const data=await res.json();
+    if(!res.ok){
+      const msg=data.error?.message||`HTTPエラー ${res.status}`;
+      console.error('Gemini API error:',data);
+      return {_error:msg};
+    }
+    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    console.log('Gemini response:',text);
+    const m=text.match(/\{[\s\S]*\}/);
+    if(!m) return {_error:'AIの返答からJSONを取得できませんでした'};
+    try{return JSON.parse(m[0]);}catch(e){return {_error:'JSON解析エラー: '+m[0].slice(0,50)};}
+  }catch(e){console.error('OCR error:',e);return {_error:'通信エラー: '+e.message};}
+}
+
+async function onPhotoCapture(event){
   const file=event.target.files[0];
   if(!file) return;
   const reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=async function(e){
+    const originalDataUrl=e.target.result;
     const img=new Image();
-    img.onload=function(){
-      const canvas=document.createElement('canvas');
-      const maxW=400,maxH=400;
-      let w=img.width,h=img.height;
-      if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
-      if(h>maxH){w=Math.round(w*maxH/h);h=maxH;}
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      libPhotoThumb=canvas.toDataURL('image/jpeg',0.75);
+    img.onload=async function(){
+      // サムネイル（表示・保存用）
+      const tc=document.createElement('canvas');
+      const tm=300;let tw=img.width,th=img.height;
+      if(tw>tm){th=Math.round(th*tm/tw);tw=tm;}
+      if(th>tm){tw=Math.round(tw*tm/th);th=tm;}
+      tc.width=tw;tc.height=th;
+      tc.getContext('2d').drawImage(img,0,0,tw,th);
+      libPhotoThumb=tc.toDataURL('image/jpeg',0.75);
       document.getElementById('photo-preview-img').src=libPhotoThumb;
       document.getElementById('photo-preview-wrap').style.display='block';
+
+      const statusEl=document.getElementById('ocr-status');
+      const apiKey=localStorage.getItem('shiomai-gemini-key')||'';
+      if(!apiKey){
+        statusEl.textContent='⚙ 右上の設定からAPIキーを登録すると商品名・塩分が自動入力されます';
+        return;
+      }
+      statusEl.textContent='🔍 AIが読み取り中...';
+
+      // OCR用：ファイルが小さければ元データを使用（高品質）、大きければ1600pxにリサイズ
+      let ocrBase64;
+      if(file.size<=3*1024*1024){
+        ocrBase64=originalDataUrl.split(',')[1];
+      }else{
+        const oc=document.createElement('canvas');
+        const om=1600;let ow=img.width,oh=img.height;
+        if(ow>om){oh=Math.round(oh*om/ow);ow=om;}
+        if(oh>om){ow=Math.round(ow*om/oh);oh=om;}
+        oc.width=ow;oc.height=oh;
+        oc.getContext('2d').drawImage(img,0,0,ow,oh);
+        ocrBase64=oc.toDataURL('image/jpeg',0.95).split(',')[1];
+      }
+
+      const result=await callGeminiOCR(ocrBase64,apiKey);
+      if(result&&result._error){
+        statusEl.textContent='❌ '+result._error;
+        statusEl.style.color='var(--danger)';
+      }else if(result){
+        if(result.name) document.getElementById('lib-name').value=result.name;
+        if(result.salt_per_100g!=null) document.getElementById('lib-pct').value=result.salt_per_100g;
+        const filled=result.name||result.salt_per_100g!=null;
+        statusEl.style.color='';
+        statusEl.textContent=filled?'✅ 読み取り完了。内容を確認して「登録する」を押してください':'⚠️ ラベルが読み取れませんでした。手動で入力してください';
+      }else{
+        statusEl.style.color='';
+        statusEl.textContent='⚠️ ラベルが読み取れませんでした。手動で入力してください';
+      }
     };
-    img.src=e.target.result;
+    img.src=originalDataUrl;
   };
   reader.readAsDataURL(file);
   event.target.value='';
